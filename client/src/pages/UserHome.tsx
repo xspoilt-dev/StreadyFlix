@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import heroImg from '../assets/hero.png'
+import AuthModal from '../components/AuthModal'
+import PassSelectionModal from '../components/PassSelectionModal'
 import PaymentModal from '../components/PaymentModal'
 import { api } from '../lib/api'
 import type { EventItem } from '../lib/api'
@@ -8,6 +10,11 @@ function UserHome() {
   const [event, setEvent] = useState<EventItem | null>(null)
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isNavOpen, setIsNavOpen] = useState(false)
+  const [isAuthOpen, setIsAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
+  const [pendingCheckout, setPendingCheckout] = useState(false)
+  const [isPassSelectOpen, setIsPassSelectOpen] = useState(false)
   const [selectedPass, setSelectedPass] = useState({
     name: 'Finals VIP Pass',
     price: '$19.99',
@@ -36,9 +43,41 @@ function UserHome() {
     loadEvent()
   }, [])
 
+  const passOptions = event
+    ? [
+        {
+          name: event.pass_name,
+          price: `$${event.pass_price.toFixed(2)}`,
+        },
+      ]
+    : []
+
   const openModal = (name: string, price: string) => {
     setSelectedPass({ name, price })
     setIsModalOpen(true)
+  }
+
+  const openPassModal = () => {
+    const userId = window.localStorage.getItem('sf_user_id')
+    if (!userId) {
+      setAuthMode('signup')
+      setPendingCheckout(true)
+      setIsAuthOpen(true)
+      return
+    }
+    if (passOptions.length > 1) {
+      setIsPassSelectOpen(true)
+      return
+    }
+    const firstPass = passOptions[0]
+    openModal(firstPass.name, firstPass.price)
+  }
+
+  const handleSchedule = () => {
+    document.getElementById('event-details')?.scrollIntoView({
+      behavior: 'smooth',
+    })
+    setIsNavOpen(false)
   }
 
   return (
@@ -52,19 +91,36 @@ function UserHome() {
               <p className="brand-subtitle">Premium Live Events</p>
             </div>
           </div>
-          <nav className="site-nav">
+          <button
+            className="user-toggle"
+            type="button"
+            aria-label="Toggle site menu"
+            onClick={() => setIsNavOpen((prev) => !prev)}
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <nav className={`site-nav ${isNavOpen ? 'is-open' : ''}`}>
             <a href="#event-details">Event</a>
             <a href="#passes">Passes</a>
             <a href="#how-it-works">How it works</a>
           </nav>
           <div className="header-actions">
-            <button className="button ghost" type="button">
+            <button
+              className="button ghost"
+              type="button"
+              onClick={() => {
+                setAuthMode('login')
+                setIsAuthOpen(true)
+              }}
+            >
               Login
             </button>
             <button
               className="button primary"
               type="button"
-              onClick={() => openModal('Finals VIP Pass', '$19.99')}
+              onClick={openPassModal}
             >
               Get Pass
             </button>
@@ -75,7 +131,9 @@ function UserHome() {
       <main>
         <section
           className="hero hero-banner"
-          style={{ backgroundImage: `url(${heroImg})` }}
+          style={{
+            backgroundImage: `url(${event?.thumbnail ?? heroImg})`,
+          }}
         >
           <div className="container hero-grid">
             <div className="hero-content">
@@ -102,29 +160,20 @@ function UserHome() {
                       : 'Finals VIP · $19.99'}
                   </p>
                 </div>
-                <div>
-                  <p className="meta-label">Stream</p>
-                  <p className="meta-value">
-                    {event ? 'Primary + Backup feeds' : 'Primary + Backup feeds'}
-                  </p>
-                </div>
               </div>
               <div className="hero-actions">
                 <button
                   className="button primary"
                   type="button"
-                  onClick={() =>
-                    openModal(
-                      event?.pass_name ?? 'Finals VIP Pass',
-                      event
-                        ? `$${event.pass_price.toFixed(2)}`
-                        : '$19.99',
-                    )
-                  }
+                  onClick={openPassModal}
                 >
                   Buy Event Pass
                 </button>
-                <button className="button outline" type="button">
+                <button
+                  className="button outline"
+                  type="button"
+                  onClick={handleSchedule}
+                >
                   View Schedule
                 </button>
               </div>
@@ -133,16 +182,6 @@ function UserHome() {
                 <span className="chip live">Live</span>
                 <span className="chip">HD Broadcast</span>
                 <span className="chip">Instant Access</span>
-                <span className="chip">Stripe + PayPal</span>
-              </div>
-            </div>
-            <div className="hero-card">
-              <p className="card-title">Next Up</p>
-              <p className="card-main">Semifinals · Arena 2</p>
-              <p className="card-sub">Live warmup in 00:18:32</p>
-              <div className="hero-card-meta">
-                <span className="chip">Doors 17:00</span>
-                <span className="chip">Main 18:00</span>
               </div>
             </div>
           </div>
@@ -152,36 +191,28 @@ function UserHome() {
           <div className="container section-head">
             <div>
               <p className="eyebrow">Event details</p>
-              <h2>One event. Full focus.</h2>
+              <h2>Event info & schedule</h2>
             </div>
           </div>
           <div className="container details-grid">
             <div className="details-card">
-              <h3>What you get</h3>
+              <h3>Details</h3>
               <p className="event-copy">
-                Live coverage of all three stages with a premium broadcast booth,
-                halftime analysis, and instant replay moments.
+                Event details are managed in the admin panel and appear here for
+                attendees.
               </p>
               <ul className="details-list">
-                <li>Primary + backup stream URLs</li>
-                <li>Full 3-hour championship coverage</li>
+                <li>Single event access</li>
                 <li>Instant access after payment</li>
+                <li>Live broadcast</li>
               </ul>
             </div>
             <div className="details-card">
               <h3>Schedule</h3>
-              <div className="schedule-item">
-                <p className="meta-label">Warmup</p>
-                <p className="meta-value">17:30 UTC</p>
-              </div>
-              <div className="schedule-item">
-                <p className="meta-label">Main Event</p>
-                <p className="meta-value">18:00 UTC</p>
-              </div>
-              <div className="schedule-item">
-                <p className="meta-label">Post show</p>
-                <p className="meta-value">20:45 UTC</p>
-              </div>
+              <p className="event-copy">
+                Schedule details are configured by the admin team and will
+                appear here.
+              </p>
             </div>
           </div>
         </section>
@@ -194,58 +225,44 @@ function UserHome() {
             </div>
           </div>
           <div className="container pass-grid">
-            <article className="pass-card">
-              <div>
-                <p className="meta-label">Standard</p>
-                <h3>Event Pass</h3>
-                <p className="event-copy">
-                  Access the live event stream with full HD broadcast.
-                </p>
-              </div>
-              <div className="pass-footer">
-                <span className="chip">$14.99</span>
-                <button
-                  className="button outline"
-                  type="button"
-                  onClick={() =>
-                    openModal(
-                      event?.pass_name ?? 'Event Pass',
-                      event
-                        ? `$${event.pass_price.toFixed(2)}`
-                        : '$14.99',
-                    )
-                  }
+            {passOptions.length === 0 ? (
+              <article className="pass-card">
+                <div>
+                  <p className="meta-label">Pass</p>
+                  <h3>Pass details pending</h3>
+                  <p className="event-copy">
+                    Pass options are set by the admin team and will appear here.
+                  </p>
+                </div>
+              </article>
+            ) : (
+              passOptions.map((pass, index) => (
+                <article
+                  key={pass.name}
+                  className={`pass-card ${index === 0 ? 'highlight' : ''}`}
                 >
-                  Buy pass
-                </button>
-              </div>
-            </article>
-            <article className="pass-card highlight">
-              <div>
-                <p className="meta-label">VIP</p>
-                <h3>Finals VIP Pass</h3>
-                <p className="event-copy">
-                  Premium angles, exclusive interviews, and priority chat.
-                </p>
-              </div>
-              <div className="pass-footer">
-                <span className="chip live">$19.99</span>
-                <button
-                  className="button primary"
-                  type="button"
-                  onClick={() =>
-                    openModal(
-                      event?.pass_name ?? 'Finals VIP Pass',
-                      event
-                        ? `$${event.pass_price.toFixed(2)}`
-                        : '$19.99',
-                    )
-                  }
-                >
-                  Buy pass
-                </button>
-              </div>
-            </article>
+                  <div>
+                    <p className="meta-label">Pass</p>
+                    <h3>{pass.name}</h3>
+                    <p className="event-copy">
+                      Access to the live event stream with instant entry.
+                    </p>
+                  </div>
+                  <div className="pass-footer">
+                    <span className={`chip ${index === 0 ? 'live' : ''}`}>
+                      {pass.price}
+                    </span>
+                    <button
+                      className={`button ${index === 0 ? 'primary' : 'outline'}`}
+                      type="button"
+                      onClick={openPassModal}
+                    >
+                      Buy pass
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </section>
 
@@ -268,8 +285,7 @@ function UserHome() {
               <p className="step-index">02</p>
               <h3>Purchase an event pass</h3>
               <p className="event-copy">
-                Pay securely with Stripe or PayPal. Affiliate codes apply
-                instantly.
+                Complete a quick checkout and jump straight into the stream.
               </p>
             </div>
             <div className="step-card">
@@ -316,6 +332,30 @@ function UserHome() {
         price={selectedPass.price}
         eventId={event?._id ?? ''}
         onClose={() => setIsModalOpen(false)}
+      />
+      <PassSelectionModal
+        isOpen={isPassSelectOpen}
+        passes={passOptions}
+        onClose={() => setIsPassSelectOpen(false)}
+        onSelect={(pass) => {
+          setIsPassSelectOpen(false)
+          openModal(pass.name, pass.price)
+        }}
+      />
+      <AuthModal
+        isOpen={isAuthOpen}
+        defaultMode={authMode}
+        onClose={() => {
+          setIsAuthOpen(false)
+          setPendingCheckout(false)
+        }}
+        onSuccess={() => {
+          setIsAuthOpen(false)
+          if (pendingCheckout) {
+            setPendingCheckout(false)
+            openPassModal()
+          }
+        }}
       />
     </div>
   )

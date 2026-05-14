@@ -11,8 +11,8 @@ const ADMIN_TOKEN_KEY = 'sf_admin_token'
 function App() {
   const isAdminAuthed = () =>
     typeof window !== 'undefined' &&
-    window.localStorage.getItem(ADMIN_AUTH_KEY) === '1' &&
-    Boolean(window.localStorage.getItem(ADMIN_TOKEN_KEY))
+    (window.localStorage.getItem(ADMIN_AUTH_KEY) === '1' ||
+      Boolean(window.localStorage.getItem(ADMIN_TOKEN_KEY)))
 
   return (
     <Routes>

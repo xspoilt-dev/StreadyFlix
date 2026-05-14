@@ -23,7 +23,7 @@ function PaymentModal({
     return null
   }
 
-  const handleCheckout = async (provider: 'stripe' | 'paypal') => {
+  const handleCheckout = async () => {
     try {
       setIsLoading(true)
       setError('')
@@ -36,11 +36,7 @@ function PaymentModal({
         event_id: eventId,
         user_id: userId,
       })
-      if (provider === 'stripe') {
-        window.location.href = response.url
-      } else {
-        window.location.href = response.url
-      }
+      window.location.href = response.url
     } catch (checkoutError) {
       const message =
         checkoutError instanceof Error
@@ -73,7 +69,7 @@ function PaymentModal({
         <div className="modal-body">
           <p className="modal-price">{price}</p>
           <p className="event-copy">
-            Secure payment with Stripe or PayPal. After purchase, you are
+            Secure payment and instant access. After purchase, you are
             redirected straight into the live player.
           </p>
           {error ? <p className="auth-error">{error}</p> : null}
@@ -81,15 +77,15 @@ function PaymentModal({
             <button
               className="button primary"
               type="button"
-              onClick={() => handleCheckout('stripe')}
+              onClick={() => handleCheckout()}
               disabled={isLoading}
             >
-              Continue with Stripe
+              Continue with Crypto
             </button>
             <button
               className="button outline"
               type="button"
-              onClick={() => handleCheckout('paypal')}
+              onClick={() => handleCheckout()}
               disabled={isLoading}
             >
               Continue with PayPal
