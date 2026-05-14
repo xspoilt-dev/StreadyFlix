@@ -1,0 +1,60 @@
+:root {
+  --surface: #131313;
+  --surface-container-low: #1c1b1b;
+  --surface-container: #201f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353534;
+  --on-surface: #e5e2e1;
+  --on-surface-variant: #d4c4b7;
+  --outline: #9c8e83;
+  --outline-variant: #50453b;
+  --primary: #eebd8e;
+  --secondary: #ffdb3c;
+  --on-secondary: #3a3000;
+  --background: #131313;
+  --on-background: #e5e2e1;
+  --container-margin: 64px;
+  --container-margin-mobile: 20px;
+  --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --font-body: 'Manrope', 'Segoe UI', sans-serif;
+
+  font-family: var(--font-body);
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--on-background);
+  background: var(--background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  color: var(--on-surface);
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  background: none;
+  color: inherit;
+}
