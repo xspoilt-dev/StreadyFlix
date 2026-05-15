@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import AdminEventModal from '../components/AdminEventModal'
 import { api } from '../lib/api'
 import type { AffiliateItem, EventItem } from '../lib/api'
 
@@ -16,12 +17,19 @@ function AdminDashboard() {
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
 
   const handleLogout = () => {
     window.localStorage.removeItem('sf_admin_authed')
     window.localStorage.removeItem('sf_admin_token')
     window.location.href = '/admin/login'
   }
+
+  const adminToken = useMemo(
+    () => window.localStorage.getItem('sf_admin_token') ?? '',
+    [],
+  )
 
   useEffect(() => {
     const token = window.localStorage.getItem('sf_admin_token') ?? ''
@@ -48,6 +56,44 @@ function AdminDashboard() {
   const handleSectionChange = (section: AdminSection) => {
     setActiveSection(section)
     setIsSidebarOpen(false)
+  }
+
+  const openCreateModal = () => {
+    setSelectedEvent(null)
+    setIsEventModalOpen(true)
+  }
+
+  const openEditModal = (eventItem: EventItem) => {
+    setSelectedEvent(eventItem)
+    setIsEventModalOpen(true)
+  }
+
+  const handleSaveEvent = async (payload: Partial<EventItem>) => {
+    try {
+      if (selectedEvent?._id) {
+        const updated = await api.updateEvent(
+          selectedEvent._id,
+          payload,
+          adminToken,
+        )
+        setEvents((prev) =>
+          prev.map((eventItem) =>
+            eventItem._id === updated._id ? updated : eventItem,
+          ),
+        )
+      } else {
+        const created = await api.createEvent(payload, adminToken)
+        setEvents((prev) => [
+          {
+            ...payload,
+            _id: created._id,
+          } as EventItem,
+          ...prev,
+        ])
+      }
+    } finally {
+      setSelectedEvent(null)
+    }
   }
 
   return (
@@ -158,7 +204,7 @@ function AdminDashboard() {
             <button
               className="button ghost"
               type="button"
-              onClick={() => handleSectionChange('events')}
+              onClick={openCreateModal}
             >
               New Event
             </button>
@@ -266,7 +312,7 @@ function AdminDashboard() {
                   <p className="meta-label">Events</p>
                   <h2>Manage events</h2>
                 </div>
-                <button className="button primary" type="button">
+                <button className="button primary" type="button" onClick={openCreateModal}>
                   Create event
                 </button>
               </div>
@@ -282,6 +328,13 @@ function AdminDashboard() {
                       <span className="meta-label">
                         ${eventItem.pass_price.toFixed(2)}
                       </span>
+                      <button
+                        className="button outline"
+                        type="button"
+                        onClick={() => openEditModal(eventItem)}
+                      >
+                        Edit
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -392,6 +445,13 @@ function AdminDashboard() {
           ) : null}
         </section>
       </div>
+      <AdminEventModal
+        isOpen={isEventModalOpen}
+        event={selectedEvent}
+        onClose={() => setIsEventModalOpen(false)}
+        onSave={handleSaveEvent}
+        key={selectedEvent?._id ?? 'new-event'}
+      />
     </div>
   )
 }

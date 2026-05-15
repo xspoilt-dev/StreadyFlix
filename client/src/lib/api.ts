@@ -2,7 +2,7 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
 
 type ApiOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   token?: string
   body?: unknown
 }
@@ -62,6 +62,12 @@ export type CheckoutSessionResponse = {
   url: string
 }
 
+export type PaymentGateway = {
+  id: 'card' | 'paypal'
+  label: string
+  enabled: boolean
+}
+
 export const api = {
   register: (payload: { name: string; email: string; password: string }) =>
     apiRequest<AuthResponse>('/api/auth/register', {
@@ -80,6 +86,17 @@ export const api = {
       method: 'POST',
       token,
       body: payload,
+    }),
+  updateEvent: (id: string, payload: Partial<EventItem>, token: string) =>
+    apiRequest<EventItem>(`/api/events/${id}`, {
+      method: 'PATCH',
+      token,
+      body: payload,
+    }),
+  deleteEvent: (id: string, token: string) =>
+    apiRequest<{ success: boolean }>(`/api/events/${id}`, {
+      method: 'DELETE',
+      token,
     }),
   listAffiliates: (token: string) =>
     apiRequest<AffiliateItem[]>('/api/affiliates', { token }),
@@ -107,4 +124,28 @@ export const api = {
         body: payload,
       },
     ),
+  listPaymentGateways: () =>
+    apiRequest<PaymentGateway[]>('/api/payments/gateways'),
+  createPayment: (provider: 'card' | 'paypal', payload: {
+    event_id: string
+    user_id: string
+    affiliate_code?: string
+    currency?: string
+  }) =>
+    apiRequest<{ url: string; session_id?: string; order_id?: string }>(
+      `/api/payments/${provider}`,
+      {
+        method: 'POST',
+        body: payload,
+      },
+    ),
+  verifyPayment: (payload: {
+    provider: 'card' | 'paypal'
+    session_id?: string
+    order_id?: string
+  }) =>
+    apiRequest<{ success: boolean }>('/api/payments/verify', {
+      method: 'POST',
+      body: payload,
+    }),
 }

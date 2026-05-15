@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import type { PaymentGateway } from '../lib/api'
 
 type PaymentModalProps = {
   isOpen: boolean
@@ -18,12 +19,41 @@ function PaymentModal({
 }: PaymentModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [gateways, setGateways] = useState<PaymentGateway[]>([])
+  const [redirectUrl, setRedirectUrl] = useState('')
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+    const loadGateways = async () => {
+      try {
+        const data = await api.listPaymentGateways()
+        setGateways(data.filter((gateway) => gateway.enabled))
+      } catch (gatewayError) {
+        const message =
+          gatewayError instanceof Error
+            ? gatewayError.message
+            : 'Unable to load payment methods'
+        setError(message)
+      }
+    }
+
+    loadGateways()
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!redirectUrl) {
+      return
+    }
+    window.location.assign(redirectUrl)
+  }, [redirectUrl])
 
   if (!isOpen) {
     return null
   }
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (provider: 'card' | 'paypal') => {
     try {
       setIsLoading(true)
       setError('')
@@ -32,11 +62,14 @@ function PaymentModal({
         setError('Please login to continue with payment.')
         return
       }
-      const response = await api.createCheckoutSession({
+      const response = await api.createPayment(provider, {
         event_id: eventId,
         user_id: userId,
       })
-      window.location.href = response.url
+      if (eventId) {
+        window.localStorage.setItem('sf_user_pass_event', eventId)
+      }
+      setRedirectUrl(response.url)
     } catch (checkoutError) {
       const message =
         checkoutError instanceof Error
@@ -74,22 +107,23 @@ function PaymentModal({
           </p>
           {error ? <p className="auth-error">{error}</p> : null}
           <div className="modal-actions">
-            <button
-              className="button primary"
-              type="button"
-              onClick={() => handleCheckout()}
-              disabled={isLoading}
-            >
-              Continue with Crypto
-            </button>
-            <button
-              className="button outline"
-              type="button"
-              onClick={() => handleCheckout()}
-              disabled={isLoading}
-            >
-              Continue with PayPal
-            </button>
+            {gateways.length === 0 ? (
+              <button className="button outline" type="button" disabled>
+                No payment methods available
+              </button>
+            ) : (
+              gateways.map((gateway, index) => (
+                <button
+                  key={gateway.id}
+                  className={`button ${index === 0 ? 'primary' : 'outline'}`}
+                  type="button"
+                  onClick={() => handleCheckout(gateway.id)}
+                  disabled={isLoading}
+                >
+                  Continue with {gateway.label}
+                </button>
+              ))
+            )}
           </div>
         </div>
       </div>

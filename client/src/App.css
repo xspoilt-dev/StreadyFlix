@@ -718,6 +718,30 @@
   align-items: center;
 }
 
+.admin-modal {
+  width: min(760px, 100%);
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-form-span {
+  grid-column: span 2;
+}
+
+.auth-field textarea,
+.auth-field select {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--on-surface);
+  font-family: inherit;
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -1028,6 +1052,14 @@
   .admin-list-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-form-span {
+    grid-column: auto;
   }
 }
 

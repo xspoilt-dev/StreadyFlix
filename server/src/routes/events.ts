@@ -23,3 +23,32 @@ eventRoutes.get("/:id", async (c) => {
   if (!event) return c.json({ error: "Event not found" }, 404);
   return c.json(event);
 });
+
+// Admin: Update Event (replace)
+eventRoutes.put("/:id", requireAdmin, async (c) => {
+  const body = await c.req.json();
+  const event = await Event.findByIdAndUpdate(c.req.param("id"), body, {
+    new: true,
+    runValidators: true,
+  });
+  if (!event) return c.json({ error: "Event not found" }, 404);
+  return c.json(event);
+});
+
+// Admin: Update Event (partial)
+eventRoutes.patch("/:id", requireAdmin, async (c) => {
+  const body = await c.req.json();
+  const event = await Event.findByIdAndUpdate(c.req.param("id"), body, {
+    new: true,
+    runValidators: true,
+  });
+  if (!event) return c.json({ error: "Event not found" }, 404);
+  return c.json(event);
+});
+
+// Admin: Delete Event
+eventRoutes.delete("/:id", requireAdmin, async (c) => {
+  const event = await Event.findByIdAndDelete(c.req.param("id"));
+  if (!event) return c.json({ error: "Event not found" }, 404);
+  return c.json({ success: true });
+});

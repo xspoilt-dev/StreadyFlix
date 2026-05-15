@@ -19,6 +19,10 @@ function UserHome() {
     name: 'Finals VIP Pass',
     price: '$19.99',
   })
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    Boolean(window.localStorage.getItem('sf_user_id')),
+  )
+  const [hasAccess, setHasAccess] = useState(false)
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -42,6 +46,15 @@ function UserHome() {
 
     loadEvent()
   }, [])
+
+  useEffect(() => {
+    if (!event) {
+      setHasAccess(false)
+      return
+    }
+    const storedEventId = window.localStorage.getItem('sf_user_pass_event')
+    setHasAccess(storedEventId === event._id)
+  }, [event])
 
   const passOptions = event
     ? [
@@ -107,16 +120,18 @@ function UserHome() {
             <a href="#how-it-works">How it works</a>
           </nav>
           <div className="header-actions">
-            <button
-              className="button ghost"
-              type="button"
-              onClick={() => {
-                setAuthMode('login')
-                setIsAuthOpen(true)
-              }}
-            >
-              Login
-            </button>
+            {!isLoggedIn ? (
+              <button
+                className="button ghost"
+                type="button"
+                onClick={() => {
+                  setAuthMode('login')
+                  setIsAuthOpen(true)
+                }}
+              >
+                Login
+              </button>
+            ) : null}
             <button
               className="button primary"
               type="button"
@@ -266,6 +281,45 @@ function UserHome() {
           </div>
         </section>
 
+        <section className="section" id="access">
+          <div className="container section-head">
+            <div>
+              <p className="eyebrow">Your access</p>
+              <h2>Purchased event</h2>
+            </div>
+          </div>
+          <div className="container details-grid">
+            {hasAccess && event ? (
+              <div className="details-card">
+                <h3>{event.name}</h3>
+                <p className="event-copy">
+                  You have access to this live event. Jump into the player when
+                  it goes live.
+                </p>
+                <button
+                  className="button primary"
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/player'
+                  }}
+                >
+                  Watch now
+                </button>
+              </div>
+            ) : (
+              <div className="details-card">
+                <h3>No access yet</h3>
+                <p className="event-copy">
+                  Purchase your pass to unlock the live stream instantly.
+                </p>
+                <button className="button primary" type="button" onClick={openPassModal}>
+                  Buy pass
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="section" id="how-it-works">
           <div className="container section-head">
             <div>
@@ -350,6 +404,7 @@ function UserHome() {
           setPendingCheckout(false)
         }}
         onSuccess={() => {
+          setIsLoggedIn(true)
           setIsAuthOpen(false)
           if (pendingCheckout) {
             setPendingCheckout(false)
