@@ -11,6 +11,16 @@ const eventSchema = new Schema(
     stream_url_backup: { type: String },
     pass_name: { type: String, required: true },
     pass_price: { type: Number, required: true },
+    passes: {
+      type: [
+        {
+          name: { type: String, required: true },
+          price: { type: Number, required: true },
+          description: { type: String },
+        },
+      ],
+      default: [],
+    },
     status: { type: String, enum: ["Draft", "Live", "Ended"], default: "Draft" },
   },
   { timestamps: true }

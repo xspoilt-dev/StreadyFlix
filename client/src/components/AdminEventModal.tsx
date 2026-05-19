@@ -18,6 +18,7 @@ const emptyEvent: Partial<EventItem> = {
   stream_url_backup: '',
   pass_name: '',
   pass_price: 0,
+  passes: [],
   status: 'Draft',
 }
 
@@ -33,6 +34,37 @@ function AdminEventModal({ isOpen, event, onClose, onSave }: AdminEventModalProp
 
   const updateField = (key: keyof EventItem, value: string | number) => {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const addPass = () => {
+    setForm((prev) => ({
+      ...prev,
+      passes: [
+        ...(prev.passes ?? []),
+        { name: '', price: 0, description: '' },
+      ],
+    }))
+  }
+
+  const updatePass = (
+    index: number,
+    key: 'name' | 'price' | 'description',
+    value: string | number,
+  ) => {
+    setForm((prev) => {
+      const next = [...(prev.passes ?? [])]
+      const current = next[index] ?? { name: '', price: 0, description: '' }
+      next[index] = { ...current, [key]: value }
+      return { ...prev, passes: next }
+    })
+  }
+
+  const removePass = (index: number) => {
+    setForm((prev) => {
+      const next = [...(prev.passes ?? [])]
+      next.splice(index, 1)
+      return { ...prev, passes: next }
+    })
   }
 
   const handleSubmit = async (eventSubmit: React.FormEvent<HTMLFormElement>) => {
@@ -137,30 +169,71 @@ function AdminEventModal({ isOpen, event, onClose, onSave }: AdminEventModalProp
                 }
               />
             </label>
-            <label className="auth-field">
-              <span>Pass name</span>
-              <input
-                type="text"
-                value={form.pass_name ?? ''}
-                onChange={(eventInput) =>
-                  updateField('pass_name', eventInput.target.value)
-                }
-                required
-              />
-            </label>
-            <label className="auth-field">
-              <span>Pass price</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.pass_price ?? 0}
-                onChange={(eventInput) =>
-                  updateField('pass_price', Number(eventInput.target.value))
-                }
-                required
-              />
-            </label>
+            <div className="admin-form-span">
+              <div className="admin-form-head">
+                <div>
+                  <p className="meta-label">Passes</p>
+                  <p className="event-copy">
+                    Add as many passes as you need. The first pass becomes the
+                    default.
+                  </p>
+                </div>
+                <button className="button outline" type="button" onClick={addPass}>
+                  Add pass
+                </button>
+              </div>
+              <div className="admin-pass-list">
+                {(form.passes ?? []).length === 0 ? (
+                  <p className="event-copy">No passes added yet.</p>
+                ) : (
+                  (form.passes ?? []).map((pass, index) => (
+                    <div className="admin-pass-card" key={`${pass.name}-${index}`}>
+                      <label className="auth-field">
+                        <span>Pass name</span>
+                        <input
+                          type="text"
+                          value={pass.name}
+                          onChange={(eventInput) =>
+                            updatePass(index, 'name', eventInput.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label className="auth-field">
+                        <span>Price</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={pass.price}
+                          onChange={(eventInput) =>
+                            updatePass(index, 'price', Number(eventInput.target.value))
+                          }
+                          required
+                        />
+                      </label>
+                      <label className="auth-field admin-form-span">
+                        <span>Description</span>
+                        <textarea
+                          value={pass.description ?? ''}
+                          onChange={(eventInput) =>
+                            updatePass(index, 'description', eventInput.target.value)
+                          }
+                          rows={2}
+                        ></textarea>
+                      </label>
+                      <button
+                        className="button ghost"
+                        type="button"
+                        onClick={() => removePass(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
             <label className="auth-field admin-form-span">
               <span>Primary stream URL</span>
               <input

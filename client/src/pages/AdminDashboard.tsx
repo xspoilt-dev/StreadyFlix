@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import AdminAffiliateModal from '../components/AdminAffiliateModal'
 import AdminEventModal from '../components/AdminEventModal'
 import { api } from '../lib/api'
-import type { AffiliateItem, EventItem } from '../lib/api'
+import type {
+  AdminPurchase,
+  AdminUser,
+  AffiliateItem,
+  EventItem,
+  PaymentGateway,
+} from '../lib/api'
 
 type AdminSection =
   | 'dashboard'
@@ -14,11 +21,15 @@ type AdminSection =
 function AdminDashboard() {
   const [events, setEvents] = useState<EventItem[]>([])
   const [affiliates, setAffiliates] = useState<AffiliateItem[]>([])
+  const [purchases, setPurchases] = useState<AdminPurchase[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [gateways, setGateways] = useState<PaymentGateway[]>([])
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
+  const [isAffiliateModalOpen, setIsAffiliateModalOpen] = useState(false)
 
   const handleLogout = () => {
     window.localStorage.removeItem('sf_admin_authed')
@@ -35,12 +46,24 @@ function AdminDashboard() {
     const token = window.localStorage.getItem('sf_admin_token') ?? ''
     const loadData = async () => {
       try {
-        const [eventsResponse, affiliatesResponse] = await Promise.all([
+        const [
+          eventsResponse,
+          affiliatesResponse,
+          purchasesResponse,
+          usersResponse,
+          gatewaysResponse,
+        ] = await Promise.all([
           api.listEvents(),
           api.listAffiliates(token),
+          api.listAdminPurchases(token),
+          api.listAdminUsers(token),
+          api.listPaymentGateways(),
         ])
         setEvents(eventsResponse)
         setAffiliates(affiliatesResponse)
+        setPurchases(purchasesResponse)
+        setUsers(usersResponse)
+        setGateways(gatewaysResponse)
       } catch (loadError) {
         const message =
           loadError instanceof Error
@@ -69,11 +92,16 @@ function AdminDashboard() {
   }
 
   const handleSaveEvent = async (payload: Partial<EventItem>) => {
+    const normalized = { ...payload }
+    if (normalized.passes && normalized.passes.length > 0) {
+      normalized.pass_name = normalized.passes[0].name
+      normalized.pass_price = normalized.passes[0].price
+    }
     try {
       if (selectedEvent?._id) {
         const updated = await api.updateEvent(
           selectedEvent._id,
-          payload,
+          normalized,
           adminToken,
         )
         setEvents((prev) =>
@@ -82,10 +110,10 @@ function AdminDashboard() {
           ),
         )
       } else {
-        const created = await api.createEvent(payload, adminToken)
+        const created = await api.createEvent(normalized, adminToken)
         setEvents((prev) => [
           {
-            ...payload,
+            ...normalized,
             _id: created._id,
           } as EventItem,
           ...prev,
@@ -94,6 +122,40 @@ function AdminDashboard() {
     } finally {
       setSelectedEvent(null)
     }
+  }
+
+  const handleRefund = async (purchaseId: string) => {
+    try {
+      const updated = await api.refundPurchase(purchaseId, adminToken)
+      setPurchases((prev) =>
+        prev.map((purchase) =>
+          purchase._id === updated._id ? updated : purchase,
+        ),
+      )
+    } catch (refundError) {
+      const message =
+        refundError instanceof Error ? refundError.message : 'Refund failed'
+      setError(message)
+    }
+  }
+
+  const handleExportPurchases = () => {
+    const header = ['Event', 'Customer', 'Amount', 'Status', 'Method']
+    const rows = purchases.map((purchase) => [
+      purchase.event_id?.name ?? 'Event',
+      purchase.user_id?.email ?? 'Customer',
+      purchase.amount.toFixed(2),
+      purchase.payment_status,
+      purchase.payment_method,
+    ])
+    const csv = [header, ...rows].map((row) => row.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'purchases.csv'
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -328,6 +390,11 @@ function AdminDashboard() {
                       <span className="meta-label">
                         ${eventItem.pass_price.toFixed(2)}
                       </span>
+                      <span className="meta-label">
+                        {eventItem.passes?.length
+                          ? `${eventItem.passes.length} passes`
+                          : '1 pass'}
+                      </span>
                       <button
                         className="button outline"
                         type="button"
@@ -349,21 +416,50 @@ function AdminDashboard() {
                   <p className="meta-label">Purchases</p>
                   <h2>Recent checkout activity</h2>
                 </div>
-                <button className="button outline" type="button">
+                <button
+                  className="button outline"
+                  type="button"
+                  onClick={handleExportPurchases}
+                >
                   Export CSV
                 </button>
               </div>
               <div className="admin-table">
-                <div className="admin-row">
-                  <div>
-                    <p className="admin-row-title">Championship Pass</p>
-                    <p className="event-copy">Order #SF-2041 · Stripe</p>
+                {purchases.map((purchase) => (
+                  <div className="admin-row" key={purchase._id}>
+                    <div>
+                      <p className="admin-row-title">
+                        {purchase.event_id?.name ?? 'Event'}
+                      </p>
+                      <p className="event-copy">
+                        {purchase.user_id?.email ?? 'Customer'} ·{' '}
+                        {purchase.payment_method}
+                      </p>
+                    </div>
+                    <div className="admin-row-meta">
+                      <span className="chip">
+                        ${purchase.amount.toFixed(2)}
+                      </span>
+                      <span className="meta-label">
+                        {purchase.payment_status}
+                      </span>
+                      {purchase.affiliate_code ? (
+                        <span className="meta-label">
+                          Ref: {purchase.affiliate_code}
+                        </span>
+                      ) : null}
+                      {purchase.payment_status === 'Completed' ? (
+                        <button
+                          className="button outline"
+                          type="button"
+                          onClick={() => handleRefund(purchase._id)}
+                        >
+                          Refund
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="admin-row-meta">
-                    <span className="chip">$24.99</span>
-                    <span className="meta-label">Paid</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           ) : null}
@@ -375,7 +471,11 @@ function AdminDashboard() {
                   <p className="meta-label">Affiliates</p>
                   <h2>Affiliate partners</h2>
                 </div>
-                <button className="button primary" type="button">
+                <button
+                  className="button primary"
+                  type="button"
+                  onClick={() => setIsAffiliateModalOpen(true)}
+                >
                   New affiliate
                 </button>
               </div>
@@ -410,15 +510,17 @@ function AdminDashboard() {
                 </button>
               </div>
               <div className="admin-table">
-                <div className="admin-row">
-                  <div>
-                    <p className="admin-row-title">john@example.com</p>
-                    <p className="event-copy">VIP pass · Active</p>
+                {users.map((user) => (
+                  <div className="admin-row" key={user._id}>
+                    <div>
+                      <p className="admin-row-title">{user.email}</p>
+                      <p className="event-copy">{user.name}</p>
+                    </div>
+                    <div className="admin-row-meta">
+                      <span className="chip">{user.role}</span>
+                    </div>
                   </div>
-                  <div className="admin-row-meta">
-                    <span className="chip">User</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           ) : null}
@@ -433,13 +535,21 @@ function AdminDashboard() {
               </div>
               <div className="admin-card">
                 <p className="meta-label">Payments</p>
-                <p className="event-copy">
-                  Payment methods configured. Update keys in the environment
-                  panel.
-                </p>
-                <button className="button outline" type="button">
-                  Manage keys
-                </button>
+                <div className="admin-table">
+                  {gateways.map((gateway) => (
+                    <div className="admin-row" key={gateway.id}>
+                      <div>
+                        <p className="admin-row-title">{gateway.label}</p>
+                        <p className="event-copy">Gateway status</p>
+                      </div>
+                      <div className="admin-row-meta">
+                        <span className="chip">
+                          {gateway.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}
@@ -451,6 +561,14 @@ function AdminDashboard() {
         onClose={() => setIsEventModalOpen(false)}
         onSave={handleSaveEvent}
         key={selectedEvent?._id ?? 'new-event'}
+      />
+      <AdminAffiliateModal
+        isOpen={isAffiliateModalOpen}
+        token={adminToken}
+        onClose={() => setIsAffiliateModalOpen(false)}
+        onCreated={(affiliate) =>
+          setAffiliates((prev) => [affiliate, ...prev])
+        }
       />
     </div>
   )

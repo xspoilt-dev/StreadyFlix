@@ -46,7 +46,26 @@ export type EventItem = {
   stream_url_backup: string
   pass_name: string
   pass_price: number
+  passes?: Array<{ name: string; price: number; description?: string }>
   status: 'Draft' | 'Live' | 'Ended'
+}
+
+export type AdminUser = {
+  _id: string
+  name: string
+  email: string
+  role: 'user' | 'admin'
+}
+
+export type AdminPurchase = {
+  _id: string
+  amount: number
+  payment_method: string
+  payment_status: 'Pending' | 'Completed' | 'Failed' | 'Refunded'
+  affiliate_code?: string
+  createdAt: string
+  user_id?: { name: string; email: string }
+  event_id?: { name: string; pass_name: string; pass_price: number; status: string }
 }
 
 export type AffiliateItem = {
@@ -66,6 +85,12 @@ export type PaymentGateway = {
   id: 'card' | 'paypal'
   label: string
   enabled: boolean
+}
+
+export type CardIntentResponse = {
+  client_secret: string | null
+  payment_intent_id: string
+  purchase_id: string
 }
 
 export const api = {
@@ -139,13 +164,33 @@ export const api = {
         body: payload,
       },
     ),
+  createCardIntent: (payload: {
+    event_id: string
+    user_id: string
+    affiliate_code?: string
+    currency?: string
+  }) =>
+    apiRequest<CardIntentResponse>('/api/payments/card/intent', {
+      method: 'POST',
+      body: payload,
+    }),
   verifyPayment: (payload: {
     provider: 'card' | 'paypal'
     session_id?: string
     order_id?: string
+    payment_intent_id?: string
   }) =>
     apiRequest<{ success: boolean }>('/api/payments/verify', {
       method: 'POST',
       body: payload,
+    }),
+  listAdminUsers: (token: string) =>
+    apiRequest<AdminUser[]>('/api/admin/users', { token }),
+  listAdminPurchases: (token: string) =>
+    apiRequest<AdminPurchase[]>('/api/admin/purchases', { token }),
+  refundPurchase: (id: string, token: string) =>
+    apiRequest<AdminPurchase>(`/api/admin/purchases/${id}/refund`, {
+      method: 'POST',
+      token,
     }),
 }

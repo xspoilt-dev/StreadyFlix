@@ -83,6 +83,40 @@ paymentRoutes.post("/card", async (c) => {
   }
 });
 
+paymentRoutes.post("/card/intent", async (c) => {
+  const { event_id, user_id, affiliate_code, currency } = await c.req.json();
+  const event = await Event.findById(event_id);
+  if (!event) return c.json({ error: "Event not found" }, 404);
+
+  const purchase = await Purchase.create({
+    user_id,
+    event_id,
+    amount: event.pass_price,
+    payment_method: "Card",
+    affiliate_code,
+    payment_status: "Pending",
+  });
+
+  try {
+    const intent = await stripe.paymentIntents.create({
+      amount: Math.round(event.pass_price * 100),
+      currency: (currency || "usd").toLowerCase(),
+      metadata: {
+        purchase_id: purchase._id.toString(),
+      },
+      automatic_payment_methods: { enabled: true },
+    });
+
+    return c.json({
+      client_secret: intent.client_secret,
+      payment_intent_id: intent.id,
+      purchase_id: purchase._id.toString(),
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 paymentRoutes.post("/paypal", async (c) => {
   const { event_id, user_id, affiliate_code, currency } = await c.req.json();
   const event = await Event.findById(event_id);
@@ -137,9 +171,22 @@ paymentRoutes.post("/paypal", async (c) => {
 });
 
 paymentRoutes.post("/verify", async (c) => {
-  const { provider, session_id, order_id } = await c.req.json();
+  const { provider, session_id, order_id, payment_intent_id } = await c.req.json();
 
   try {
+    if (provider === "card" && payment_intent_id) {
+      const intent = await stripe.paymentIntents.retrieve(payment_intent_id);
+      const purchaseId = intent.metadata?.purchase_id;
+      if (intent.status === "succeeded" && purchaseId) {
+        await Purchase.findByIdAndUpdate(purchaseId, {
+          payment_status: "Completed",
+          transaction_id: intent.id,
+        });
+        return c.json({ success: true });
+      }
+      return c.json({ success: false });
+    }
+
     if (provider === "card" && session_id) {
       const session = await stripe.checkout.sessions.retrieve(session_id);
       const purchaseId = session.metadata?.purchase_id;

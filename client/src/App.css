@@ -501,6 +501,8 @@
   padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-header {
@@ -732,6 +734,28 @@
   grid-column: span 2;
 }
 
+.admin-form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.admin-pass-list {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-pass-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 12px;
+}
+
 .auth-field textarea,
 .auth-field select {
   padding: 12px 14px;
@@ -740,6 +764,13 @@
   background: rgba(0, 0, 0, 0.35);
   color: var(--on-surface);
   font-family: inherit;
+}
+
+.card-element {
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .auth-page {

@@ -57,12 +57,17 @@ function UserHome() {
   }, [event])
 
   const passOptions = event
-    ? [
-        {
-          name: event.pass_name,
-          price: `$${event.pass_price.toFixed(2)}`,
-        },
-      ]
+    ? event.passes && event.passes.length > 0
+      ? event.passes.map((pass) => ({
+          name: pass.name,
+          price: `$${pass.price.toFixed(2)}`,
+        }))
+      : [
+          {
+            name: event.pass_name,
+            price: `$${event.pass_price.toFixed(2)}`,
+          },
+        ]
     : []
 
   const openModal = (name: string, price: string) => {
