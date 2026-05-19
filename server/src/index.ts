@@ -1,3 +1,4 @@
+import "./config/env";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { connectDB } from "./config/db";
@@ -6,10 +7,6 @@ import { eventRoutes } from "./routes/events";
 import { paymentRoutes } from "./routes/payments";
 import { affiliateRoutes } from "./routes/affiliates";
 import { adminRoutes } from "./routes/admin";
-
-// Setup Envs
-import * as dotenv from "dotenv";
-dotenv.config({ path: "../.env" }); // Assuming .env is at the root
 
 const app = new Hono();
 

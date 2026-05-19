@@ -1,6 +1,15 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
 
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+    this.name = 'ApiError'
+  }
+}
+
 type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   token?: string
@@ -18,8 +27,18 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T>
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Request failed')
+    let message = 'Request failed'
+    try {
+      const data = await response.json() as { error?: string }
+      message = data.error || message
+    } catch {
+      try {
+        message = await response.text() || message
+      } catch {
+        // ignore
+      }
+    }
+    throw new ApiError(message, response.status)
   }
 
   return response.json() as Promise<T>
@@ -104,6 +123,11 @@ export const api = {
       method: 'POST',
       body: payload,
     }),
+  getMe: (token: string) =>
+    apiRequest<{
+      user: AuthResponse['user']
+      purchases: string[]
+    }>('/api/auth/me', { token }),
   listEvents: () => apiRequest<EventItem[]>('/api/events'),
   getEvent: (id: string) => apiRequest<EventItem>(`/api/events/${id}`),
   createEvent: (payload: Partial<EventItem>, token: string) =>
@@ -190,6 +214,11 @@ export const api = {
     apiRequest<AdminPurchase[]>('/api/admin/purchases', { token }),
   refundPurchase: (id: string, token: string) =>
     apiRequest<AdminPurchase>(`/api/admin/purchases/${id}/refund`, {
+      method: 'POST',
+      token,
+    }),
+  approvePurchase: (id: string, token: string) =>
+    apiRequest<AdminPurchase>(`/api/admin/purchases/${id}/approve`, {
       method: 'POST',
       token,
     }),

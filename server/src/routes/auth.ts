@@ -2,8 +2,38 @@ import { Hono } from "hono";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
+import { requireAuth } from "../middlewares/auth";
+import { Purchase } from "../models/Purchase";
 
 export const authRoutes = new Hono();
+
+// Get current user and purchases
+authRoutes.get("/me", requireAuth, async (c) => {
+  try {
+    const userPayload = (c as any).get("user");
+    const user = await User.findById(userPayload?.id).select("-password");
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    const purchases = await Purchase.find({
+      user_id: user._id,
+      payment_status: "Completed",
+    });
+
+    return c.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      purchases: purchases.map((p) => p.event_id.toString()),
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
 
 // Signup
 authRoutes.post("/register", async (c) => {
@@ -16,7 +46,7 @@ authRoutes.post("/register", async (c) => {
   const user = await User.create({ name, email, password: hashedPassword });
 
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || "secret", {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as any,
   });
 
   return c.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
@@ -32,8 +62,9 @@ authRoutes.post("/login", async (c) => {
   }
 
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || "secret", {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as any,
   });
 
   return c.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
 });
+

@@ -3,6 +3,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin.tsx'
 import PlayerPage from './pages/PlayerPage'
 import UserHome from './pages/UserHome'
+import PaymentComplete from './pages/PaymentComplete'
 import './App.css'
 
 const ADMIN_AUTH_KEY = 'sf_admin_authed'
@@ -28,6 +29,7 @@ function App() {
           )
         }
       />
+      <Route path="/payments/complete" element={<PaymentComplete />} />
       <Route path="/player" element={<PlayerPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -35,3 +37,4 @@ function App() {
 }
 
 export default App
+

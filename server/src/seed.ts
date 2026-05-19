@@ -87,7 +87,7 @@ const seed = async () => {
       user_id: normalUser._id,
       event_id: liveEvent._id,
       amount: liveEvent.pass_price,
-      payment_method: "Stripe",
+      payment_method: "Card",
       payment_status: "Completed",
       affiliate_code: affiliate?.code,
       transaction_id: "seed_txn_001",

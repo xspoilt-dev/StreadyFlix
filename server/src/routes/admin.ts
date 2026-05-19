@@ -43,3 +43,25 @@ adminRoutes.post("/purchases/:id/refund", async (c) => {
   await purchase.save();
   return c.json(purchase);
 });
+
+adminRoutes.post("/purchases/:id/approve", async (c) => {
+  const purchase = await Purchase.findById(c.req.param("id"));
+  if (!purchase) return c.json({ error: "Purchase not found" }, 404);
+
+  if (purchase.payment_status === "Completed") {
+    return c.json(purchase);
+  }
+
+  if (purchase.affiliate_code) {
+    const affiliate = await Affiliate.findOne({ code: purchase.affiliate_code });
+    if (affiliate) {
+      const commission = (purchase.amount * affiliate.commission_percent) / 100;
+      affiliate.balance = (affiliate.balance || 0) + commission;
+      await affiliate.save();
+    }
+  }
+
+  purchase.payment_status = "Completed";
+  await purchase.save();
+  return c.json(purchase);
+});

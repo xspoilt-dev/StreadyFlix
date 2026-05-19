@@ -20,7 +20,7 @@ function UserHome() {
     price: '$19.99',
   })
   const [isLoggedIn, setIsLoggedIn] = useState(
-    Boolean(window.localStorage.getItem('sf_user_id')),
+    Boolean(window.localStorage.getItem('sf_user_token')),
   )
   const [hasAccess, setHasAccess] = useState(false)
 
@@ -48,13 +48,43 @@ function UserHome() {
   }, [])
 
   useEffect(() => {
-    if (!event) {
-      setHasAccess(false)
-      return
+    const checkAuth = async () => {
+      const token = window.localStorage.getItem('sf_user_token')
+      if (!token) {
+        setIsLoggedIn(false)
+        setHasAccess(false)
+        window.localStorage.removeItem('sf_user_id')
+        window.localStorage.removeItem('sf_user_pass_event')
+        return
+      }
+
+      try {
+        const data = await api.getMe(token)
+        setIsLoggedIn(true)
+        window.localStorage.setItem('sf_user_id', data.user.id)
+        
+        if (event) {
+          const userHasAccess = data.purchases.includes(event._id)
+          setHasAccess(userHasAccess)
+          if (userHasAccess) {
+            window.localStorage.setItem('sf_user_pass_event', event._id)
+          } else {
+            window.localStorage.removeItem('sf_user_pass_event')
+          }
+        }
+      } catch (authError) {
+        window.localStorage.removeItem('sf_user_token')
+        window.localStorage.removeItem('sf_user_id')
+        window.localStorage.removeItem('sf_user_pass_event')
+        setIsLoggedIn(false)
+        setHasAccess(false)
+      }
     }
-    const storedEventId = window.localStorage.getItem('sf_user_pass_event')
-    setHasAccess(storedEventId === event._id)
-  }, [event])
+
+    if (event) {
+      checkAuth()
+    }
+  }, [event, isLoggedIn])
 
   const passOptions = event
     ? event.passes && event.passes.length > 0
@@ -136,7 +166,21 @@ function UserHome() {
               >
                 Login
               </button>
-            ) : null}
+            ) : (
+              <button
+                className="button ghost"
+                type="button"
+                onClick={() => {
+                  window.localStorage.removeItem('sf_user_token')
+                  window.localStorage.removeItem('sf_user_id')
+                  window.localStorage.removeItem('sf_user_pass_event')
+                  setIsLoggedIn(false)
+                  setHasAccess(false)
+                }}
+              >
+                Logout
+              </button>
+            )}
             <button
               className="button primary"
               type="button"

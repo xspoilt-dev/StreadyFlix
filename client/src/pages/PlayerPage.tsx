@@ -1,29 +1,51 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { EventItem } from '../lib/api'
 
 function PlayerPage() {
+  const navigate = useNavigate()
   const [event, setEvent] = useState<EventItem | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const loadEvent = async () => {
+    const checkAccessAndLoad = async () => {
+      const token = window.localStorage.getItem('sf_user_token')
+      if (!token) {
+        navigate('/', { replace: true })
+        return
+      }
+
       try {
+        // 1. Verify token & get user's purchases
+        const meResponse = await api.getMe(token)
+        
+        // 2. Load active events
         const events = await api.listEvents()
         if (events.length > 0) {
-          setEvent(events[0])
+          const activeEvent = events[0]
+          setEvent(activeEvent)
+          
+          // 3. Verify access
+          const userHasAccess = meResponse.purchases.includes(activeEvent._id)
+          if (!userHasAccess) {
+            navigate('/', { replace: true })
+          }
+        } else {
+          setError('No active event found.')
         }
       } catch (loadError) {
-        const message =
-          loadError instanceof Error
-            ? loadError.message
-            : 'Unable to load event'
-        setError(message)
+        // Clear stale storage & redirect
+        window.localStorage.removeItem('sf_user_token')
+        window.localStorage.removeItem('sf_user_id')
+        window.localStorage.removeItem('sf_user_pass_event')
+        navigate('/', { replace: true })
       }
     }
 
-    loadEvent()
-  }, [])
+    checkAccessAndLoad()
+  }, [navigate])
+
 
   return (
     <div className="player-page">
@@ -38,7 +60,7 @@ function PlayerPage() {
             <button className="button outline" type="button">
               Backup stream
             </button>
-            <button className="button ghost" type="button">
+            <button className="button ghost" type="button" onClick={() => navigate('/')}>
               Exit
             </button>
           </div>

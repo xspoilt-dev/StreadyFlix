@@ -7,7 +7,6 @@ import type {
   AdminUser,
   AffiliateItem,
   EventItem,
-  PaymentGateway,
 } from '../lib/api'
 
 type AdminSection =
@@ -16,14 +15,12 @@ type AdminSection =
   | 'purchases'
   | 'affiliates'
   | 'users'
-  | 'settings'
 
 function AdminDashboard() {
   const [events, setEvents] = useState<EventItem[]>([])
   const [affiliates, setAffiliates] = useState<AffiliateItem[]>([])
   const [purchases, setPurchases] = useState<AdminPurchase[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [gateways, setGateways] = useState<PaymentGateway[]>([])
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -51,20 +48,24 @@ function AdminDashboard() {
           affiliatesResponse,
           purchasesResponse,
           usersResponse,
-          gatewaysResponse,
         ] = await Promise.all([
           api.listEvents(),
           api.listAffiliates(token),
           api.listAdminPurchases(token),
           api.listAdminUsers(token),
-          api.listPaymentGateways(),
         ])
         setEvents(eventsResponse)
         setAffiliates(affiliatesResponse)
         setPurchases(purchasesResponse)
         setUsers(usersResponse)
-        setGateways(gatewaysResponse)
       } catch (loadError) {
+        if (loadError && typeof loadError === 'object' && 'status' in loadError) {
+          const apiErr = loadError as { status: number }
+          if (apiErr.status === 401 || apiErr.status === 403) {
+            handleLogout()
+            return
+          }
+        }
         const message =
           loadError instanceof Error
             ? loadError.message
@@ -119,6 +120,15 @@ function AdminDashboard() {
           ...prev,
         ])
       }
+    } catch (saveError) {
+      if (saveError && typeof saveError === 'object' && 'status' in saveError) {
+        const apiErr = saveError as { status: number }
+        if (apiErr.status === 401 || apiErr.status === 403) {
+          handleLogout()
+          return
+        }
+      }
+      throw saveError
     } finally {
       setSelectedEvent(null)
     }
@@ -133,8 +143,37 @@ function AdminDashboard() {
         ),
       )
     } catch (refundError) {
+      if (refundError && typeof refundError === 'object' && 'status' in refundError) {
+        const apiErr = refundError as { status: number }
+        if (apiErr.status === 401 || apiErr.status === 403) {
+          handleLogout()
+          return
+        }
+      }
       const message =
         refundError instanceof Error ? refundError.message : 'Refund failed'
+      setError(message)
+    }
+  }
+
+  const handleApprove = async (purchaseId: string) => {
+    try {
+      const updated = await api.approvePurchase(purchaseId, adminToken)
+      setPurchases((prev) =>
+        prev.map((purchase) =>
+          purchase._id === updated._id ? updated : purchase,
+        ),
+      )
+    } catch (approveError) {
+      if (approveError && typeof approveError === 'object' && 'status' in approveError) {
+        const apiErr = approveError as { status: number }
+        if (apiErr.status === 401 || apiErr.status === 403) {
+          handleLogout()
+          return
+        }
+      }
+      const message =
+        approveError instanceof Error ? approveError.message : 'Approval failed'
       setError(message)
     }
   }
@@ -216,15 +255,6 @@ function AdminDashboard() {
             onClick={() => handleSectionChange('users')}
           >
             Users
-          </button>
-          <button
-            className={`admin-nav-item ${
-              activeSection === 'settings' ? 'active' : ''
-            }`}
-            type="button"
-            onClick={() => handleSectionChange('settings')}
-          >
-            Settings
           </button>
         </nav>
         <div className="admin-sidebar-footer">
@@ -457,6 +487,16 @@ function AdminDashboard() {
                           Refund
                         </button>
                       ) : null}
+                      {purchase.payment_status !== 'Completed' && purchase.payment_status !== 'Refunded' ? (
+                        <button
+                          className="button primary"
+                          type="button"
+                          onClick={() => handleApprove(purchase._id)}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                        >
+                          Approve
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -480,20 +520,73 @@ function AdminDashboard() {
                 </button>
               </div>
               <div className="admin-table">
-                {affiliates.map((affiliate) => (
-                  <div className="admin-row" key={affiliate._id}>
-                    <div>
-                      <p className="admin-row-title">{affiliate.name}</p>
-                      <p className="event-copy">Code: {affiliate.code}</p>
+                {affiliates.map((affiliate) => {
+                  const affiliateLink = `${window.location.origin}/?ref=${affiliate.code}`
+                  return (
+                    <div className="admin-row" key={affiliate._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <p className="admin-row-title">{affiliate.name}</p>
+                          <p className="event-copy" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Commission: {affiliate.commission_percent}% · Balance: ${affiliate.balance.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="admin-row-meta" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span className="chip" style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#60a5fa' }}>
+                            ${affiliate.balance.toFixed(2)}
+                          </span>
+                          <span className="meta-label">{affiliate.commission_percent}%</span>
+                        </div>
+                      </div>
+                      
+                      <div className="affiliate-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', width: '100%', background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                        <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <span className="meta-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Affiliate Link</span>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              readOnly
+                              value={affiliateLink}
+                              style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '0.35rem 0.5rem', color: '#fff', fontSize: '0.85rem' }}
+                            />
+                            <button
+                              className="button primary"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                              onClick={() => {
+                                navigator.clipboard.writeText(affiliateLink)
+                                alert('Link copied to clipboard!')
+                              }}
+                            >
+                              Copy Link
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <span className="meta-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Affiliate Code</span>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              readOnly
+                              value={affiliate.code}
+                              style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '0.35rem 0.5rem', color: '#fff', fontSize: '0.85rem', fontWeight: 'bold' }}
+                            />
+                            <button
+                              className="button outline"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                              onClick={() => {
+                                navigator.clipboard.writeText(affiliate.code)
+                                alert('Code copied to clipboard!')
+                              }}
+                            >
+                              Copy Code
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="admin-row-meta">
-                      <span className="chip">{affiliate.balance.toFixed(2)}</span>
-                      <span className="meta-label">
-                        {affiliate.commission_percent}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ) : null}
@@ -525,34 +618,7 @@ function AdminDashboard() {
             </div>
           ) : null}
 
-          {activeSection === 'settings' ? (
-            <div className="admin-list">
-              <div className="admin-list-head">
-                <div>
-                  <p className="meta-label">Settings</p>
-                  <h2>Platform preferences</h2>
-                </div>
-              </div>
-              <div className="admin-card">
-                <p className="meta-label">Payments</p>
-                <div className="admin-table">
-                  {gateways.map((gateway) => (
-                    <div className="admin-row" key={gateway.id}>
-                      <div>
-                        <p className="admin-row-title">{gateway.label}</p>
-                        <p className="event-copy">Gateway status</p>
-                      </div>
-                      <div className="admin-row-meta">
-                        <span className="chip">
-                          {gateway.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
+
         </section>
       </div>
       <AdminEventModal
